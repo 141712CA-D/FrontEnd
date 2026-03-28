@@ -92,9 +92,12 @@ export default function ContactPage() {
             <p className="text-sm text-white/40 max-w-xs leading-relaxed">
               We&apos;ll get back to you as soon as we can.
             </p>
-            <Link href="/" className="mt-4 text-xs text-blue-400/70 hover:text-blue-400 transition-colors">
+            <button
+              onClick={() => { sessionStorage.removeItem("introPlayed"); window.location.href = "/"; }}
+              className="mt-4 text-xs text-blue-400/70 hover:text-blue-400 transition-colors"
+            >
               ← Back to home
-            </Link>
+            </button>
           </div>
         ) : (
           <>

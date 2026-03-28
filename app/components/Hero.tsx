@@ -79,7 +79,10 @@ export default function Hero() {
         <h1 className="animate-fade-up delay-200 text-6xl sm:text-7xl md:text-8xl font-bold tracking-tight leading-none">
           <span className="gradient-text">Think anything.</span>
           <br />
-          <span className="text-white/90">Let AI build it.</span>
+          <span className="text-white/90">
+            <span className="sm:hidden">Let AI<br />build it.</span>
+            <span className="hidden sm:inline">Let AI build it.</span>
+          </span>
         </h1>
 
         {/* Subheadline */}
@@ -122,7 +125,7 @@ export default function Hero() {
             <span className="w-3 h-3 rounded-full bg-green-500/60" />
             <span className="ml-4 text-xs text-white/20 font-mono">project-caden — multi-agent design session · sketch agent [1/4]</span>
           </div>
-          <div className="p-8 font-mono text-xs leading-relaxed">
+          <div className="p-4 sm:p-8 font-mono text-xs leading-relaxed overflow-x-auto">
             <div className="flex flex-col gap-1 text-left w-full">
 
               <p className="text-white/30 mb-2">$ caden generate --prompt <span className="text-white/50">&quot;load-bearing bracket with 4 M6 mounting holes, 25mm center bore, chamfered corners, 6mm wall thickness&quot;</span> --plane Top</p>
