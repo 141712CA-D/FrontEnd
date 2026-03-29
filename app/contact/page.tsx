@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { Turnstile } from "@marsidev/react-turnstile";
+import type { TurnstileInstance } from "@marsidev/react-turnstile";
 
 type Status = "idle" | "loading" | "success" | "error";
 
@@ -15,6 +17,8 @@ const labelClass = "block text-xs text-white/40 font-medium tracking-wide mb-2 u
 
 export default function ContactPage() {
   const [status, setStatus] = useState<Status>("idle");
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileInstance>(null);
 
   const [name, setName]             = useState("");
   const [email, setEmail]           = useState("");
@@ -27,15 +31,26 @@ export default function ContactPage() {
     e.preventDefault();
     setStatus("loading");
 
+    if (!captchaToken) {
+      setStatus("error");
+      return;
+    }
+
     try {
       const res = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, role, university, subject, message }),
+        body: JSON.stringify({ name, email, role, university, subject, message, captchaToken }),
       });
+      if (!res.ok) {
+        turnstileRef.current?.reset();
+        setCaptchaToken(null);
+      }
       setStatus(res.ok ? "success" : "error");
     } catch {
       setStatus("error");
+      turnstileRef.current?.reset();
+      setCaptchaToken(null);
     }
   }
 
@@ -137,13 +152,21 @@ export default function ContactPage() {
                 <textarea className={inputClass + " resize-none"} rows={5} placeholder="What's on your mind?" value={message} onChange={(e) => setMessage(e.target.value)} required />
               </div>
 
+              <Turnstile
+                ref={turnstileRef}
+                siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+                onSuccess={(token) => setCaptchaToken(token)}
+                onExpire={() => setCaptchaToken(null)}
+                options={{ theme: "dark" }}
+              />
+
               {status === "error" && (
                 <p className="text-xs text-red-400/80">Something went wrong. Please try again.</p>
               )}
 
               <button
                 type="submit"
-                disabled={status === "loading"}
+                disabled={status === "loading" || !captchaToken}
                 className="mt-2 w-full py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-sky-400 text-white text-sm font-semibold hover:opacity-90 transition-opacity duration-200 disabled:opacity-50 disabled:cursor-not-allowed glow-button"
               >
                 {status === "loading" ? "Sending..." : "Send message"}

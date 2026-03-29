@@ -25,9 +25,23 @@ async function appendToSheet(row: (string | undefined)[]) {
   });
 }
 
+async function verifyTurnstile(token: string) {
+  const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ secret: process.env.TURNSTILE_SECRET_KEY, response: token }),
+  });
+  const data = await res.json();
+  return data.success === true;
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { type } = body;
+  const { type, captchaToken } = body;
+
+  if (!captchaToken || !(await verifyTurnstile(captchaToken))) {
+    return NextResponse.json({ success: false, error: "Invalid captcha" }, { status: 400 });
+  }
 
   let subject: string;
   let html: string;

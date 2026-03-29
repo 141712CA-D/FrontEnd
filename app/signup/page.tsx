@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { Turnstile } from "@marsidev/react-turnstile";
+import type { TurnstileInstance } from "@marsidev/react-turnstile";
 
 type FormType = "individual" | "team";
 type Status = "idle" | "loading" | "success" | "error";
@@ -17,6 +19,8 @@ const labelClass = "block text-xs text-white/40 font-medium tracking-wide mb-2 u
 export default function SignupPage() {
   const [type, setType] = useState<FormType>("individual");
   const [status, setStatus] = useState<Status>("idle");
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileInstance>(null);
 
   // Individual fields
   const [indName, setIndName]         = useState("");
@@ -36,6 +40,11 @@ export default function SignupPage() {
     e.preventDefault();
     setStatus("loading");
 
+    if (!captchaToken) {
+      setStatus("error");
+      return;
+    }
+
     const payload =
       type === "individual"
         ? { type, name: indName, email: indEmail, role: indRole, university: indUniversity, reason: indReason }
@@ -45,11 +54,17 @@ export default function SignupPage() {
       const res = await fetch("/api/waitlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, captchaToken }),
       });
+      if (!res.ok) {
+        turnstileRef.current?.reset();
+        setCaptchaToken(null);
+      }
       setStatus(res.ok ? "success" : "error");
     } catch {
       setStatus("error");
+      turnstileRef.current?.reset();
+      setCaptchaToken(null);
     }
   }
 
@@ -192,13 +207,21 @@ export default function SignupPage() {
                 </>
               )}
 
+              <Turnstile
+                ref={turnstileRef}
+                siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+                onSuccess={(token) => setCaptchaToken(token)}
+                onExpire={() => setCaptchaToken(null)}
+                options={{ theme: "dark" }}
+              />
+
               {status === "error" && (
                 <p className="text-xs text-red-400/80">Something went wrong. Please try again.</p>
               )}
 
               <button
                 type="submit"
-                disabled={status === "loading"}
+                disabled={status === "loading" || !captchaToken}
                 className="mt-2 w-full py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-sky-400 text-white text-sm font-semibold hover:opacity-90 transition-opacity duration-200 disabled:opacity-50 disabled:cursor-not-allowed glow-button"
               >
                 {status === "loading" ? "Sending..." : "Request access"}

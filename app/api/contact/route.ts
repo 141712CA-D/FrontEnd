@@ -3,8 +3,22 @@ import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+async function verifyTurnstile(token: string) {
+  const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ secret: process.env.TURNSTILE_SECRET_KEY, response: token }),
+  });
+  const data = await res.json();
+  return data.success === true;
+}
+
 export async function POST(req: NextRequest) {
-  const { name, email, role, university, subject, message } = await req.json();
+  const { name, email, role, university, subject, message, captchaToken } = await req.json();
+
+  if (!captchaToken || !(await verifyTurnstile(captchaToken))) {
+    return NextResponse.json({ success: false, error: "Invalid captcha" }, { status: 400 });
+  }
 
   const emailSubject = `[CADen Contact] ${subject} — ${name}`;
   const html = `
