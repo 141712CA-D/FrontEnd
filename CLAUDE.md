@@ -50,11 +50,11 @@ app/
 │
 ├── about/page.tsx          # About Us page — Andrew Yang and Sandeep Sawhney cards
 ├── signup/page.tsx         # Waitlist form — Individual (with university if Student) + Team tabs
-├── contact/page.tsx        # Contact form — name, email, role, university if Student, subject, message
+├── contact/page.tsx        # Contact form — Individual + Team tabs, subject + message
 │
 └── api/
-    ├── waitlist/route.ts   # POST — verifies Turnstile, sends email via Resend, appends to Google Sheet
-    └── contact/route.ts    # POST — verifies Turnstile, sends email via Resend
+    ├── waitlist/route.ts   # POST — verifies Turnstile, validates fields, sends email + appends to Google Sheet
+    └── contact/route.ts    # POST — verifies Turnstile, validates fields, sends email
 ```
 
 ---
@@ -68,6 +68,7 @@ app/
   - Return visit: skips animation, page appears instantly (`transition: none`)
   - "← Back to home" on success pages clears the flag so animation replays
 - `mounted` state gates IntroAnimation to prevent hydration mismatch (sessionStorage not available on server)
+- Footer: © year + nav links + `v1.4.0` centered in monospace dim text
 
 ### Intro Animation (`IntroAnimation.tsx`)
 - Phases and timings:
@@ -80,12 +81,15 @@ app/
   ```
 - Locks `document.body.style.overflow = "hidden"` on mount, restores at PHASE_EXIT
 - Sets `pointerEvents: "none"` at PHASE_EXIT so content behind is immediately interactive
+- `document.body.focus()` called at PHASE_EXIT for scroll restoration
 - Color palette: blue (`rgba(37,99,235,...)`) and sky (`rgba(14,165,233,...)`)
 
 ### Hero (`Hero.tsx`)
 - Ambient glow orbs (animated via `orb-1/2/3` CSS classes)
 - Floating particles (10 items, CSS custom properties `--duration` and `--delay`)
 - Terminal demo window showing multi-agent session (`sketch agent [1/4]` → extrusion → fillet → edit agents)
+  - Terminal title bar: dots use `flex-shrink-0` so they never compress on mobile
+  - Mobile title: `project-caden · sketch agent [1/4]` — desktop: full string
 - Three-pillar row: "Describe it" / "Agents go to work" / "A complete model in Onshape"
 - Double CTA: "Join the waitlist" (top + bottom repeat)
 
@@ -106,32 +110,69 @@ app/
 ### Waitlist (`/signup`)
 - Two tabs: Individual | Team / Organization
 - Individual fields: Name, Email, Role (Student/Instructor/Project Manager/Hobbyist), University (shown only if Role === "Student"), Why CADen
-- Team fields: Rep Name, Email, Organization, Role, Intended Usage
+- Team fields: Rep Name, Email, Organization, Role (text input), Intended Usage
 - Cloudflare Turnstile widget — submit button disabled until token received
 - On success: "You're on the list." state with "← Back to home" that replays intro animation
 - Clears `document.body.style.overflow` on mount (prevents scroll lock bleed from home page)
 
 ### Contact (`/contact`)
-- Fields: Name, Email, Role (Student/Instructor/Project Manager/Hobbyist/Other), University (if Student), Subject, Message
+- Two tabs: Individual | Team / Organization (same tab pattern as waitlist)
+- Individual fields: Name, Email, Role (Student/Instructor/Project Manager/Hobbyist/Other), University (if Student), Subject, Message
+- Team fields: Rep Name, Email, Organization, Your Role (text input), Subject, Message
 - Same Turnstile setup as waitlist
 - On success: "Message received." state
 - Clears `document.body.style.overflow` on mount
 
 ---
 
+## Form Validation
+
+Both `/signup` and `/contact` use the same validation pattern:
+
+- `noValidate` on the form element — disables browser native validation
+- `errors` state: `Record<string, string>`
+- `validate()` — checks all required fields, returns boolean, sets all errors at once
+- `clearError(field)` — removes a single field's error as soon as the user starts correcting it
+- Tab switching clears all errors: `onClick={() => { setType(t); setErrors({}); }}`
+- `inputClass(error?: string)` is a function — passes `"border-red-500/60"` when error present, `"border-white/10"` otherwise
+- Inline error messages under each field: `errorClass = "text-xs text-red-400/80 mt-1.5"`
+- Email validation: regex `/^[^\s@]+@[^\s@]+\.[^\s@]+$/` — shows "Please enter a valid email address."
+- Captcha error shown if Turnstile not completed before submit
+
+### Select Dropdown Styling
+- `appearance-none` removes native browser arrow
+- Custom SVG chevron via inline `backgroundImage` (URL-encoded), positioned `right 14px center`
+- `pr-10` prevents text overlapping the chevron
+- `font-sans` forces Geist Sans (select elements don't inherit font by default)
+- Placeholder color: `rgba(255,255,255,0.25)` when no value selected, `rgba(255,255,255,1)` when value chosen — set via inline `style` since Tailwind can't conditionally override `text-white`
+
+---
+
 ## API Routes
 
 ### `POST /api/waitlist`
-1. Verifies Cloudflare Turnstile token server-side against `TURNSTILE_SECRET_KEY`
-2. Sends formatted HTML email via Resend (`from: developers@projcaden.dev`, `to: developers@projcaden.dev`)
-3. Appends row to Google Sheet via service account auth
+1. Verifies Cloudflare Turnstile token server-side
+2. **Server-side field validation** — returns 400 if any required field is missing, email is invalid format, or `type` is not `"individual"` or `"team"`; also checks university required when role is Student
+3. Sends formatted HTML email via Resend (`from: developers@projcaden.dev`, `to: developers@projcaden.dev`)
+4. Appends row to Google Sheet via service account auth
    - Columns: Timestamp | Type | Name/Rep | Email | Role | University | Reason/Usage | Organization
-4. Email + sheet write run in parallel via `Promise.all`
+5. Email + sheet write run in parallel via `Promise.all`
 
 ### `POST /api/contact`
 1. Verifies Cloudflare Turnstile token server-side
-2. Sends formatted HTML email via Resend (`from/to: developers@projcaden.dev`)
-   - Subject line format: `[CADen Contact] {subject} — {name}`
+2. **Server-side field validation** — same pattern as waitlist; validates both `individual` and `team` types
+3. Sends formatted HTML email via Resend (`from/to: developers@projcaden.dev`)
+   - Individual subject: `[CADen Contact] {subject} — {name}`
+   - Team subject: `[CADen Contact — Team] {subject} — {repName} ({org})`
+4. Both route handlers initialize Resend **inside** the handler (not module level) — avoids build-time errors
+
+### Shared validation helpers (in each route)
+```ts
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+function missing(...vals: unknown[]) {
+  return vals.some((v) => !v || (typeof v === "string" && !v.trim()));
+}
+```
 
 ---
 
@@ -158,3 +199,4 @@ app/
 - `tabIndex={-1}` on `<body>` in `layout.tsx` — makes body programmatically focusable for scroll restoration after intro animation completes
 - About page uses explicit `lg:items-start lg:text-left` / `lg:items-end lg:text-right` instead of dynamic Tailwind class names (v4 purges dynamic template literal classes)
 - Turnstile widget requires network access to Cloudflare — may not appear on poor mobile connections
+- Select `color` can't be conditionally overridden via Tailwind utility classes when `text-white` is already set by `inputClass` — use inline `style` instead
