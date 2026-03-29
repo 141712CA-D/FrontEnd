@@ -35,12 +35,32 @@ async function verifyTurnstile(token: string) {
   return data.success === true;
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function missing(...vals: unknown[]) {
+  return vals.some((v) => !v || (typeof v === "string" && !v.trim()));
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const { type, captchaToken } = body;
 
   if (!captchaToken || !(await verifyTurnstile(captchaToken))) {
     return NextResponse.json({ success: false, error: "Invalid captcha" }, { status: 400 });
+  }
+
+  if (type === "individual") {
+    const { name, email, role, university, reason } = body;
+    if (missing(name, email, role, reason) || !EMAIL_RE.test(email))
+      return NextResponse.json({ success: false, error: "Missing or invalid fields" }, { status: 400 });
+    if (role === "Student" && missing(university))
+      return NextResponse.json({ success: false, error: "University required for students" }, { status: 400 });
+  } else if (type === "team") {
+    const { repName, email, org, role, usage } = body;
+    if (missing(repName, email, org, role, usage) || !EMAIL_RE.test(email))
+      return NextResponse.json({ success: false, error: "Missing or invalid fields" }, { status: 400 });
+  } else {
+    return NextResponse.json({ success: false, error: "Invalid type" }, { status: 400 });
   }
 
   let subject: string;

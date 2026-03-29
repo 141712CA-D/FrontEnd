@@ -119,11 +119,14 @@ export default function Hero() {
           className="animate-fade-in delay-1000 mt-10 w-full rounded-2xl overflow-hidden border border-blue-500/15"
           style={{ background: "linear-gradient(145deg, rgba(37,99,235,0.07) 0%, rgba(14,165,233,0.04) 100%)" }}
         >
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-blue-500/10 bg-blue-500/[0.03]">
-            <span className="w-3 h-3 rounded-full bg-red-500/60" />
-            <span className="w-3 h-3 rounded-full bg-yellow-500/60" />
-            <span className="w-3 h-3 rounded-full bg-green-500/60" />
-            <span className="ml-4 text-xs text-white/20 font-mono">project-caden — multi-agent design session · sketch agent [1/4]</span>
+          <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-blue-500/10 bg-blue-500/[0.03]">
+            <span className="flex-shrink-0 w-3 h-3 rounded-full bg-red-500/60" />
+            <span className="flex-shrink-0 w-3 h-3 rounded-full bg-yellow-500/60" />
+            <span className="flex-shrink-0 w-3 h-3 rounded-full bg-green-500/60" />
+            <span className="ml-2 text-xs text-white/20 font-mono">
+              <span className="hidden sm:inline">project-caden — multi-agent design session · sketch agent [1/4]</span>
+              <span className="sm:hidden">project-caden · sketch agent [1/4]</span>
+            </span>
           </div>
           <div className="p-4 sm:p-8 font-mono text-xs leading-relaxed overflow-x-auto">
             <div className="flex flex-col gap-1 text-left w-full">
