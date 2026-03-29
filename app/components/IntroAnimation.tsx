@@ -6,9 +6,9 @@ import Image from "next/image";
 const FULL_TEXT = "Project CADen";
 const PHASE_SCANLINE  = 300;   // ms — scan line starts
 const PHASE_TYPING    = 900;   // ms — text starts typing
-const PHASE_BURST     = 2000;  // ms — radial burst plays
-const PHASE_EXIT      = 2600;  // ms — overlay begins fading out
-const PHASE_UNMOUNT   = 3400;  // ms — component removed from DOM
+const PHASE_BURST     = 1900;  // ms — radial burst plays (after typing finishes ~1810ms)
+const PHASE_EXIT      = 2300;  // ms — overlay begins fading out
+const PHASE_UNMOUNT   = 3000;  // ms — component removed from DOM
 
 export default function IntroAnimation({ onDone }: { onDone: () => void }) {
   const [phase, setPhase]         = useState<"idle"|"scan"|"type"|"burst"|"exit">("idle");
@@ -23,9 +23,12 @@ export default function IntroAnimation({ onDone }: { onDone: () => void }) {
     const t1 = setTimeout(() => setPhase("scan"),  PHASE_SCANLINE);
     const t2 = setTimeout(() => setPhase("type"),  PHASE_TYPING);
     const t3 = setTimeout(() => setPhase("burst"), PHASE_BURST);
-    const t4 = setTimeout(() => setPhase("exit"),  PHASE_EXIT);
-    const t5 = setTimeout(() => {
+    const t4 = setTimeout(() => {
+      setPhase("exit");
       document.body.style.overflow = "";
+      document.body.focus();
+    }, PHASE_EXIT);
+    const t5 = setTimeout(() => {
       setMounted(false);
       onDone();
     }, PHASE_UNMOUNT);
@@ -53,6 +56,7 @@ export default function IntroAnimation({ onDone }: { onDone: () => void }) {
       style={{
         transition: phase === "exit" ? "opacity 0.8s cubic-bezier(0.4,0,0.2,1)" : "none",
         opacity: phase === "exit" ? 0 : 1,
+        pointerEvents: phase === "exit" ? "none" : "auto",
       }}
     >
       {/* Background grid (same as hero) */}

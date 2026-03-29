@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Turnstile } from "@marsidev/react-turnstile";
@@ -21,6 +21,8 @@ export default function SignupPage() {
   const [status, setStatus] = useState<Status>("idle");
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const turnstileRef = useRef<TurnstileInstance>(null);
+
+  useEffect(() => { document.body.style.overflow = ""; }, []);
 
   // Individual fields
   const [indName, setIndName]         = useState("");
